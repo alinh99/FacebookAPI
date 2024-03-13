@@ -11,6 +11,8 @@ from dotenv import load_dotenv
 
 load_dotenv()
 
+#TODO: how many impressions, click on every day, month?
+
 # Set the info to get connected to the API. Do NOT share this info
 my_app_id = os.environ.get('APP_ID', '')
 my_app_secret = os.environ.get('APP_SECRET', '')
