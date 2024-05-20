@@ -1,0 +1,5 @@
+cron:
+- description: append facebook ads data
+  url: /append_facebook_data
+  schedule: every 24 hours
+  target: default

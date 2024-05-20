@@ -1,3 +1,9 @@
 python-dotenv
 pandas
 requests
+google-cloud-bigquery
+Flask
+gunicorn
+pyarrow
+google-cloud-storage
+python-dotenv
