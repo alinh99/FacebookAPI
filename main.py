@@ -38,7 +38,7 @@ def hello():
 
 
 @app.route("/append_facebook_data")
-def append_data():
+def append_facebook_data():
     """Return a friendly HTTP greeting."""
     data = get_metrics(url, headers, params)
 
@@ -64,6 +64,7 @@ def append_data():
     )
 
     return "Results Logged for Facebook Ads!"
+
 
 if __name__ == "__main__":
     # This is used when running locally only. When deploying to Google App
