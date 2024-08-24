@@ -3,3 +3,4 @@ cron:
   url: /append_facebook_data
   schedule: everyday 21:26
   timezone: Asia/Bangkok
+  target: default

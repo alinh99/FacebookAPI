@@ -1,62 +1,59 @@
+import time
+from facebook_business.adobjects.adaccount import AdAccount
+from facebook_business.adobjects.adreportrun import AdReportRun
+from facebook_business.api import FacebookAdsApi
+from facebook_business.adobjects.adaccount import AdAccount
+from facebook_business.adobjects.adreportrun import AdReportRun
+import traceback
+import sys
+import logging
 import requests
-import pandas as pd
-from google.cloud import bigquery
-from google.oauth2 import service_account
 
-
-def get_metrics(url: str, headers: dict, params: dict) -> list:
+def wait_for_async_job(job, limit: int, TIMEOUT=300):
     try:
-        insights = []
-
-        while True:
-            r = requests.get(url=url, headers=headers, params=params)
-            insight_data = r.json()
-
-            if "error" in insight_data:
-                print("Error:", insight_data["error"])
-                break
-
-            insights.extend(insight_data["data"])
-
-            # Check for pagination
-            if (
-                "paging" in insight_data
-                and "cursors" in insight_data["paging"]
-                and "after" in insight_data["paging"]["cursors"]
-            ):
-                params["after"] = insight_data["paging"]["cursors"]["after"]
-            else:
-                break
-        return insights
-    except Exception as e:
-        return str(r)
-
-def get_big_query_information(table: str, dataset_id: str, project_id: str):
-    try:
-        table_id = "{}.{}.{}".format(project_id, dataset_id, table)
-        return table_id
-    except Exception as e:
-        return str(e)
-
-
-def load_table_dataframe(
-    key_path: str, project_id: str, table_id: str, dataframe: pd.DataFrame
-):
-    try:
-        credentials = service_account.Credentials.from_service_account_file(
-            key_path,
-            scopes=["https://www.googleapis.com/auth/cloud-platform"],
+        for _ in range(TIMEOUT):
+            time.sleep(1)
+            job = job.api_get()
+            status = job[AdReportRun.Field.async_status]
+            if status == "Job Completed":
+                return job.get_result(params={"limit": limit})
+    except Exception:
+        ex_type, ex_value, ex_traceback = sys.exc_info()
+        trace_back = traceback.extract_tb(ex_traceback)
+        stack_trace = list()
+        for trace in trace_back:
+            stack_trace.append(
+                f"File : {trace[0]} , Line : {trace[1]}, Func.Name : {trace[2]}, Message : {trace[3]}, Exception type: {ex_type}, Exception message: {ex_value}"
+            )
+        stack_trace_message = "\n".join(stack_trace)
+        logging.error(
+            f"Exception type: {ex_type}, Exception message: {ex_value}\nStack trace:\n{stack_trace_message}"
         )
+        return  f"Exception type: {ex_type}, Exception message: {ex_value}\nStack trace:\n{stack_trace_message}"
 
-        # Construct a BigQuery client object.
-        client = bigquery.Client(credentials=credentials, project=project_id)
+def exchange_token(short_lived_token, client_id, client_secret):
+    exchange_url = f"https://graph.facebook.com/oauth/access_token?grant_type=fb_exchange_token&client_id={client_id}&client_secret={client_secret}&fb_exchange_token={short_lived_token}"
+    response = requests.get(exchange_url)
+    long_lived_token = response.json().get('access_token')
+    return long_lived_token
 
-        job_config = bigquery.LoadJobConfig(write_disposition="WRITE_TRUNCATE")
-
-        job = client.load_table_from_dataframe(dataframe, table_id, job_config=job_config)
-        job.result()
-
-        data = client.get_table(table_id)
-        return data
-    except Exception as e:
-        return str(e)
+def get_metrics(ad_account_id: str, params: dict, APP_ID: str, APP_SECRET: str, ACCESS_TOKEN: str, limit: int, timeout=300)->list:
+    try:
+        FacebookAdsApi.init(APP_ID, APP_SECRET, ACCESS_TOKEN)
+        job = AdAccount(f'act_{ad_account_id}').get_insights_async(params=params)
+        result_cursor = wait_for_async_job(job, limit, timeout)
+        results = [item for item in result_cursor]
+        return results
+    except Exception:
+        ex_type, ex_value, ex_traceback = sys.exc_info()
+        trace_back = traceback.extract_tb(ex_traceback)
+        stack_trace = list()
+        for trace in trace_back:
+            stack_trace.append(
+                f"File : {trace[0]} , Line : {trace[1]}, Func.Name : {trace[2]}, Message : {trace[3]}, Exception type: {ex_type}, Exception message: {ex_value}"
+            )
+        stack_trace_message = "\n".join(stack_trace)
+        logging.error(
+            f"Exception type: {ex_type}, Exception message: {ex_value}\nStack trace:\n{stack_trace_message}"
+        )
+        return  f"Exception type: {ex_type}, Exception message: {ex_value}\nStack trace:\n{stack_trace_message}"
